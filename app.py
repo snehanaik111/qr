@@ -424,10 +424,7 @@ def generate_pdf(id):
         mimetype='application/pdf'
     )
 
-@app.route('/scan_qr/<imei>', methods=['GET'])
-def scan_qr(imei):
-    record = LevelSensorData.query.filter_by(imei=imei).first_or_404()
-    return redirect(url_for('generate_pdf', id=record.id))
+
 
 
 
@@ -447,32 +444,31 @@ def add_sample_data():
 
 
 import json
-
+# Modify the generate_qr function to encode the URL of the PDF route
 @app.route('/generate_qr/<int:id>')
 def generate_qr(id):
     record = LevelSensorData.query.get_or_404(id)
-   
-    data_to_encode = json.dumps({
-      
-        "Date": record.date,
-        "Full Address": record.full_addr,
-        "Sensor Data": record.sensor_data,
-        "IMEI": record.imei,
-        "Volume (liters)": record.volume_liters
-    })
+    pdf_url = url_for('generate_pdf', id=id, _external=True)  # Generate PDF route URL
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
         box_size=4,
         border=4,
     )
-    qr.add_data("https://in.docworkspace.com/d/sIEGR2_lXvILmsgY")
+    qr.add_data(pdf_url)  # Encode PDF URL in the QR code
     qr.make(fit=True)
     img = qr.make_image(fill='black', back_color='white')
     img_io = io.BytesIO()
     img.save(img_io, format='PNG')
     img_io.seek(0)
     return send_file(img_io, mimetype='image/png')
+
+# Create a route to handle redirection from QR code to PDF
+@app.route('/scan_qr/<imei>', methods=['GET'])
+def scan_qr(imei):
+    record = LevelSensorData.query.filter_by(imei=imei).first_or_404()
+    return redirect(url_for('generate_pdf', id=record.id))
+
 
 
 
