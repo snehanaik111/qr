@@ -343,6 +343,7 @@ def receive_level_sensor_data():
 
 
 
+
 @app.route('/api/device_entries_logged', methods=['GET'])
 def api_device_entries_logged():
     if 'email' in session:
