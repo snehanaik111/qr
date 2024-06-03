@@ -88,18 +88,18 @@ class LevelSensorData(db.Model):
     date = db.Column(db.String(50))
     full_addr = db.Column(db.Integer)
     sensor_data = db.Column(db.Float)
-    imei = db.Column(db.String(50))
+    vehicleno = db.Column(db.String(50))
     volume_liters = db.Column(db.Float)
     qrcode = db.Column(LargeBinary)
     pdf = db.Column(LargeBinary)
     
-    def __init__(self, date, full_addr, sensor_data, imei, volume_liters):
+    def __init__(self, date, full_addr, sensor_data, vehicleno, volume_liters):
         self.date = date
         self.full_addr = full_addr
         self.sensor_data = sensor_data
-        self.imei = imei
+        self.vehicleno = vehicleno
         self.volume_liters = volume_liters
-        self.qrcode = self.generate_qr_code(self.imei)
+        self.qrcode = self.generate_qr_code(self.vehicleno)
         self.pdf = self.generate_pdf()
 
 
@@ -125,7 +125,7 @@ class LevelSensorData(db.Model):
         c.drawString(100, 750, f"Date: {self.date}")
         c.drawString(100, 730, f"Full Address: {self.full_addr}")
         c.drawString(100, 710, f"Sensor Data: {self.sensor_data}")
-        c.drawString(100, 690, f"IMEI: {self.imei}")
+        c.drawString(100, 690, f"vehicleno: {self.vehicleno}")
         c.drawString(100, 670, f"Volume (liters): {self.volume_liters}")
         c.showPage()
         c.save()
@@ -135,7 +135,7 @@ class LevelSensorData(db.Model):
 
     def __repr__(self):
         return (f"<LevelSensorData(date='{self.date}', full_addr='{self.full_addr}', "
-                f"sensor_data={self.sensor_data}, imei='{self.imei}', "
+                f"sensor_data={self.sensor_data}, vehicleno='{self.vehicleno}', "
                 f"volume_liters={self.volume_liters})>")
     
 
@@ -224,7 +224,7 @@ def dashboard():
                 (LevelSensorData.date.like(f'%{search_query}%')) |
                 (LevelSensorData.full_addr.like(f'%{search_query}%')) |
                 (LevelSensorData.sensor_data.like(f'%{search_query}%')) |
-                (LevelSensorData.imei.like(f'%{search_query}%'))
+                (LevelSensorData.vehicleno.like(f'%{search_query}%'))
             ).order_by(LevelSensorData.date.desc()).paginate(page=page, per_page=10)
         else:
             if filter_option == 'oldest':
@@ -282,7 +282,7 @@ def receive_level_sensor_data():
                 api_logger.error("Request content type is not JSON")
                 return jsonify({'status': 'failure', 'message': 'Request content type is not JSON'}), 400
             request_data = request.get_json()
-            modbus_test_data = request_data.get('modbus_TEST', '{}')
+            modbus_test_data = request_data.get('level_sensor_data', '{}')
             try:
                 sense_data = json.loads(modbus_test_data)
             except json.JSONDecodeError:
@@ -295,9 +295,9 @@ def receive_level_sensor_data():
             date = sense_data.get('D', '')
             full_addr = sense_data.get('address', 0)
             sensor_data = sense_data.get('data', [])
-            imei = sense_data.get('IMEI', '')
+            vehicleno = sense_data.get('Vehicle no', '')
 
-            if not all([date, full_addr, sensor_data, imei]):
+            if not all([date, full_addr, sensor_data, vehicleno]):
                 api_logger.error("Missing required data fields")
                 return jsonify({'status': 'failure', 'message': 'Missing required data fields'}), 400
 
@@ -322,7 +322,7 @@ def receive_level_sensor_data():
                 return jsonify({'status': 'failure', 'message': 'Failed to convert sensor data to volume'}), 400
 
             # Create a new LevelSensorData object with volume_liters and add it to the database
-            new_data = LevelSensorData(date=date, full_addr=full_addr, sensor_data=sensor_data, imei=imei, volume_liters=volume_liters)
+            new_data = LevelSensorData(date=date, full_addr=full_addr, sensor_data=sensor_data, vehicleno=vehicleno, volume_liters=volume_liters)
             db.session.add(new_data)
             db.session.commit()
 
@@ -352,7 +352,7 @@ def api_device_entries_logged():
 @app.route('/api/no_of_devices_active', methods=['GET'])
 def api_no_of_devices_active():
     if 'email' in session:
-        active_devices = db.session.query(db.func.count(db.distinct(LevelSensorData.imei))).scalar()
+        active_devices = db.session.query(db.func.count(db.distinct(LevelSensorData.vehicleno))).scalar()
         return jsonify({"no_of_devices_active": active_devices}), 200
     return jsonify({"message": "Unauthorized"}), 401
 
@@ -366,7 +366,7 @@ def search_sensor_data():
             (LevelSensorData.date.like(f'%{query}%')) |
             (LevelSensorData.full_addr.like(f'%{query}%')) |
             (LevelSensorData.sensor_data.like(f'%{query}%')) |
-            (LevelSensorData.imei.like(f'%{query}%'))
+            (LevelSensorData.vehicleno.like(f'%{query}%'))
         ).paginate(page=page, per_page=10)
         sense_data = sense_data_pagination.items
     else:
@@ -434,7 +434,7 @@ def add_sample_data():
         date='2024-05-29',
         full_addr=12345,
         sensor_data=78.9,
-        imei='123456789012345',
+        vehicleno='123456789012345',
         volume_liters=100.5
     )
     db.session.add(sample_record)
@@ -464,9 +464,9 @@ def generate_qr(id):
     return send_file(img_io, mimetype='image/png')
 
 # Create a route to handle redirection from QR code to PDF
-@app.route('/scan_qr/<imei>', methods=['GET'])
-def scan_qr(imei):
-    record = LevelSensorData.query.filter_by(imei=imei).first_or_404()
+@app.route('/scan_qr/<vehicleno>', methods=['GET'])
+def scan_qr(vehicleno):
+    record = LevelSensorData.query.filter_by(vehicleno=vehicleno).first_or_404()
     return redirect(url_for('generate_pdf', id=record.id))
 
 
