@@ -428,20 +428,6 @@ def generate_pdf(id):
 
 
 
-@app.route('/add_sample_data', methods=['GET'])
-def add_sample_data():
-    sample_record = LevelSensorData(
-        date='2024-05-29',
-        full_addr=12345,
-        sensor_data=78.9,
-        vehicleno='123456789012345',
-        volume_liters=100.5
-    )
-    db.session.add(sample_record)
-    db.session.commit()
-    return "Sample data added!"
-
-
 
 import json
 # Modify the generate_qr function to encode the URL of the PDF route
