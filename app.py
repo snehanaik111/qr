@@ -281,6 +281,7 @@ def receive_level_sensor_data():
             if not request.is_json:
                 api_logger.error("Request content type is not JSON")
                 return jsonify({'status': 'failure', 'message': 'Request content type is not JSON'}), 400
+            
             request_data = request.get_json()
             modbus_test_data = request_data.get('level_sensor_data', '{}')
             try:
